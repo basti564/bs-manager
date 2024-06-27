@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BsmProgressBar } from "renderer/components/progress-bar/bsm-progress-bar.component";
 import { BsmImage } from "renderer/components/shared/bsm-image.component";
 import TitleBar from "renderer/components/title-bar/title-bar.component";
@@ -13,6 +13,8 @@ import { useService } from "renderer/hooks/use-service.hook";
 import { useWindowArgs } from "renderer/hooks/use-window-args.hook";
 import { useWindowControls } from "renderer/hooks/use-window-controls.hook";
 
+import {BsmTimedButton} from "renderer/components/shared/bsm-timedboutton/bsm-timed-button.component";
+
 export default function OneClickDownloadMap() {
 
     const bsv = useService(BeatSaverService);
@@ -23,13 +25,15 @@ export default function OneClickDownloadMap() {
     const { close: closeWindow } = useWindowControls();
     const { mapId, isHash } = useWindowArgs("mapId", "isHash");
     const [mapInfo, setMapInfo] = useState<BsvMapDetail>(null);
+    const [timeout, setTimeout] = useState(5);
 
     const t = useTranslation();
 
     const cover = mapInfo ? mapInfo.versions.at(0).coverURL : null;
     const title = mapInfo ? mapInfo.name : null;
 
-    useEffect(() => {
+    const handleOnComplete = () => {
+        setTimeout(0);
 
         progressBar.open();
 
@@ -64,7 +68,12 @@ export default function OneClickDownloadMap() {
             closeWindow();
         });
 
-    }, []);
+    }
+
+    const handleOnClick = () => {
+        closeWindow();
+    }
+
 
     return (
         <div className="relative w-screen h-screen overflow-hidden">
@@ -74,7 +83,11 @@ export default function OneClickDownloadMap() {
                 <BsmImage className="aspect-square w-1/2 object-cover rounded-md shadow-black shadow-lg" placeholder={defaultImage} image={cover} errorImage={defaultImage} />
                 <h1 className="overflow-hidden font-bold italic text-xl text-gray-200 tracking-wide w-full text-center whitespace-nowrap text-ellipsis px-2">{title}</h1>
             </div>
-            <BsmProgressBar />
+            {timeout > 0 ? (
+                <BsmTimedButton duration={timeout} textBeforeDuration="oneclick.download-map.timeout" textAfterDuration="oneclick.download-map.timeout" onComplete={() => handleOnComplete()} onClick={handleOnClick} />
+            ) : (
+                <BsmProgressBar />
+            )}
         </div>
     );
 }
