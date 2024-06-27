@@ -1,46 +1,46 @@
 import { useRef, MouseEvent, useEffect, useState } from "react";
 import { useTranslation } from "renderer/hooks/use-translation.hook";
 import "./bsm-timed-button.component.css";
+import { black, white } from "tailwindcss/colors";
 
 type Props = {
     duration: number;
-    textBeforeDuration: string;
-    textAfterDuration: string;
+    text: string;
     onComplete: () => void;
     onClick: React.ComponentProps<'button'>['onClick'];
 };
 
 
-export function BsmTimedButton({ duration, textBeforeDuration, textAfterDuration, onComplete, onClick }: Props) {
+export function BsmTimedButton({ duration, text, onComplete, onClick }: Props) {
     const t = useTranslation();
     const ref = useRef(null);
-    const [remainingTime, setRemainingTime] = useState(duration);
 
-    useEffect(() => {
-      const timer = setInterval(() => {
-        setRemainingTime(prev => {
-          if (prev <= 1) {
+    const [timeout, setTimeout] = useState(duration);
+
+    const timer = setInterval(() => {
+        if(timeout === 0) {
             clearInterval(timer);
-            onComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }, [duration, onComplete]);
+            return;
+        }
+        setTimeout(timeout - 1);
+    }
+    , 1000);
 
-    const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
-        setRemainingTime(0);
-        onClick?.(e)
-    };
+
+    const handleOnClick = (e: MouseEvent<HTMLButtonElement>) => {
+        onClick(e);
+        setTimeout(duration);
+    }
+
+    handleOnComplete = () => {
+        onComplete();
+    }
 
     return (
-        <div className="button-container">
-            <button type="button" onClick={handleClick} className="timer-button" ref={ref}>
-                     {t(textBeforeDuration) + remainingTime + t(textAfterDuration)}
-                     <div className="progress-bar" style={{ animationDuration: `${duration}s` }} />
-            </button>
-        </div>
-    );
+        <button ref={ref} onClick={handleOnClick} type="button" className="w-full bg-gray-200 rounded-full dark:bg-gray-700" >
+            <div className="transition-all duration-1000 ease-in-out w-full h-full bg-blue-500 rounded-full dark:bg-blue-700">
+                {`${text}`}
+            </div>
+        </button>
+    )
 }
