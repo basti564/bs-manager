@@ -95,7 +95,7 @@ if (!gotTheLock) {
 
         initServicesMustBeInitialized();
 
-        const deepLink = process.argv.find(arg => DeepLinkService.getInstance().isDeepLink(arg));
+        const deepLink = "beatsaver://16992";
 
         if (!deepLink) {
             createWindow();
