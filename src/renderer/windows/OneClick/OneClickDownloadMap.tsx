@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BsmProgressBar } from "renderer/components/progress-bar/bsm-progress-bar.component";
 import { BsmImage } from "renderer/components/shared/bsm-image.component";
 import TitleBar from "renderer/components/title-bar/title-bar.component";
@@ -25,23 +25,34 @@ export default function OneClickDownloadMap() {
     const { close: closeWindow } = useWindowControls();
     const { mapId, isHash } = useWindowArgs("mapId", "isHash");
     const [mapInfo, setMapInfo] = useState<BsvMapDetail>(null);
-    const [timeout, setTimeout] = useState(5);
+    const [downloadLaunched, setDownloadLaunched] = useState<boolean>(false);
 
     const t = useTranslation();
 
     const cover = mapInfo ? mapInfo.versions.at(0).coverURL : null;
     const title = mapInfo ? mapInfo.name : null;
+    const getMapDetails = async () => {
+      return isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : await bsv.getMapDetailsById(mapId);
+    };
+
+    const getMapDetailsAsync = async () => {
+      const details = await getMapDetails();
+      return details;
+    };
+
+    useEffect(() => {
+        getMapDetailsAsync().then((details) => {
+            setMapInfo(details);
+        });
+        }, []);
 
     const handleOnComplete = () => {
-        setTimeout(0);
-
+        setDownloadLaunched(true);
         progressBar.open();
 
         console.log("AAAA", mapId, isHash);
 
         const promise = (async () => {
-
-            const mapDetails = isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : await bsv.getMapDetailsById(mapId);
             console.log(mapDetails);
 
             setMapInfo(() => mapDetails);
@@ -74,7 +85,6 @@ export default function OneClickDownloadMap() {
         closeWindow();
     }
 
-
     return (
         <div className="relative w-screen h-screen overflow-hidden">
             {cover && <BsmImage className="absolute top-0 left-0 w-full h-full object-cover" image={cover} />}
@@ -83,8 +93,8 @@ export default function OneClickDownloadMap() {
                 <BsmImage className="aspect-square w-1/2 object-cover rounded-md shadow-black shadow-lg" placeholder={defaultImage} image={cover} errorImage={defaultImage} />
                 <h1 className="overflow-hidden font-bold italic text-xl text-gray-200 tracking-wide w-full text-center whitespace-nowrap text-ellipsis px-2">{title}</h1>
             </div>
-            {timeout > 0 ? (
-                <BsmTimedButton duration={timeout} textBeforeDuration="oneclick.download-map.timeout" textAfterDuration="oneclick.download-map.timeout" onComplete={() => handleOnComplete()} onClick={handleOnClick} />
+            {!downloadLaunched ? (
+                <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" />
             ) : (
                 <BsmProgressBar />
             )}

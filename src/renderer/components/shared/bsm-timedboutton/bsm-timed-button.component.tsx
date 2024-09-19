@@ -1,46 +1,54 @@
-import { useRef, MouseEvent, useEffect, useState } from "react";
+import React, { useEffect, MouseEvent, useState } from "react";
 import { useTranslation } from "renderer/hooks/use-translation.hook";
-import "./bsm-timed-button.component.css";
-import { black, white } from "tailwindcss/colors";
 
 type Props = {
-    duration: number;
     text: string;
-    onComplete: () => void;
     onClick: React.ComponentProps<'button'>['onClick'];
+    onComplete: () => void;
 };
 
-
-export function BsmTimedButton({ duration, text, onComplete, onClick }: Props) {
+export function BsmTimedButton({ onClick, onComplete, text }: Props) {
     const t = useTranslation();
-    const ref = useRef(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const [timeleft, setTimeleft] = useState(5);
 
-    const [timeout, setTimeout] = useState(duration);
+    useEffect(() => {
+        setIsVisible(true);
 
-    const timer = setInterval(() => {
-        if(timeout === 0) {
-            clearInterval(timer);
-            return;
+        const interval = setInterval(() => {
+            setTimeleft((time) => {
+                if (time <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return time - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (timeleft === 0) {
+           // onComplete();
         }
-        setTimeout(timeout - 1);
-    }
-    , 1000);
-
+    }, [timeleft, onComplete]);
 
     const handleOnClick = (e: MouseEvent<HTMLButtonElement>) => {
         onClick(e);
-        setTimeout(duration);
-    }
-
-    handleOnComplete = () => {
-        onComplete();
-    }
+    };
 
     return (
-        <button ref={ref} onClick={handleOnClick} type="button" className="w-full bg-gray-200 rounded-full dark:bg-gray-700" >
-            <div className="transition-all duration-1000 ease-in-out w-full h-full bg-blue-500 rounded-full dark:bg-blue-700">
-                {`${text}`}
+        <div className="absolute w-full bottom-4 flex-col flex items-center">
+            <span className="z-10 text-white font-bold">{`Download will start in ${timeleft} seconds`}</span>
+            <div className="flex gap-2">
+            <button
+                onClick={handleOnClick}
+                type="button"
+                className="px-2 w-fit h-7 flex justify-center items-center rounded-md font-bold bg-light-main-color-2 dark:bg-blue-500 hover:brightness-125 overflow-hidden"
+            >{t(text)}</button>
             </div>
-        </button>
-    )
+            <span className=" text-white text-sm font-bold">3 Versions Selected </span>
+        </div>
+    );
 }
