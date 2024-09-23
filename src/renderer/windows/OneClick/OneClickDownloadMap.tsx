@@ -32,7 +32,7 @@ export default function OneClickDownloadMap() {
     const cover = mapInfo ? mapInfo.versions.at(0).coverURL : null;
     const title = mapInfo ? mapInfo.name : null;
     const getMapDetails = async () => {
-      return isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : await bsv.getMapDetailsById(mapId);
+      return isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : bsv.getMapDetailsById(mapId);
     };
 
     const getMapDetailsAsync = async () => {
@@ -52,7 +52,7 @@ export default function OneClickDownloadMap() {
 
         const promise = (async () => {
 
-            const mapDetails = isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : await bsv.getMapDetailsById(mapId);
+            const mapDetails = await getMapDetails();
 
             setMapInfo(() => mapDetails);
 
