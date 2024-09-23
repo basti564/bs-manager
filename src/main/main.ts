@@ -123,7 +123,9 @@ if (!gotTheLock) {
 
         initServicesMustBeInitialized();
 
-        const deepLink = findDeepLinkInArgs(process.argv);
+        const deepLink = "beatsaver://16992";
+        // const deepLink = findDeepLinkInArgs(process.argv);
+        
         const associatedFile = findAssociatedFileInArgs(process.argv);
 
         if (deepLink) {
