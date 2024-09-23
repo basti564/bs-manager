@@ -94,7 +94,7 @@ export default function OneClickDownloadMap() {
                 <h1 className="overflow-hidden font-bold italic text-xl text-gray-200 tracking-wide w-full text-center whitespace-nowrap text-ellipsis px-2">{title}</h1>
             </div>
             {!downloadLaunched ? (
-                <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" />
+                <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" typeColor="primary" timeout={5000} />
             ) : (
                 <BsmProgressBar />
             )}
