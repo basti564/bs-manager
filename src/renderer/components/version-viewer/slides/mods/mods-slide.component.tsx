@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BsModsManagerService } from "renderer/services/bs-mods-manager.service";
 import { BSVersion } from "shared/bs-version.interface";
 import { Mod } from "shared/models/mods/mod.interface";
@@ -9,8 +9,8 @@ import { BsmButton } from "renderer/components/shared/bsm-button.component";
 import BeatWaitingImg from "../../../../../../assets/images/apngs/beat-waiting.png";
 import BeatConflictImg from "../../../../../../assets/images/apngs/beat-conflict.png";
 import { useObservable } from "renderer/hooks/use-observable.hook";
-import { skip, filter, map } from "rxjs/operators";
-import { Observable, Subscription, combineLatest, lastValueFrom, noop } from "rxjs";
+import { skip, filter } from "rxjs/operators";
+import { Subscription, lastValueFrom, noop } from "rxjs";
 import { useTranslation } from "renderer/hooks/use-translation.hook";
 import { LinkOpenerService } from "renderer/services/link-opener.service";
 import { useInView } from "framer-motion";
@@ -19,12 +19,14 @@ import { ModsDisclaimerModal } from "renderer/components/modal/modal-types/mods-
 import { OsDiagnosticService } from "renderer/services/os-diagnostic.service";
 import { lt } from "semver";
 import { useService } from "renderer/hooks/use-service.hook";
+import { NotificationService } from "renderer/services/notification.service";
 
 export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion; onDisclamerDecline: () => void }) {
     const ACCEPTED_DISCLAIMER_KEY = "accepted-mods-disclaimer";
 
     const modsManager = useService(BsModsManagerService);
     const configService = useService(ConfigurationService);
+    const notification = useService(NotificationService);
     const linkOpener = useService(LinkOpenerService);
     const modals = useService(ModalService);
     const os = useService(OsDiagnosticService);
@@ -35,6 +37,7 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
     const [modsInstalled, setModsInstalled] = useState(null as Map<string, Mod[]>);
     const [modsSelected, setModsSelected] = useState([] as Mod[]);
     const [moreInfoMod, setMoreInfoMod] = useState(null as Mod);
+    const [reinstallAllMods, setReinstallAllMods] = useState(false);
     const isOnline = useObservable(() => os.isOnline$);
     const installing = useObservable(() => modsManager.isInstalling$);
 
@@ -51,15 +54,17 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
     };
 
     const handleModChange = (selected: boolean, mod: Mod) => {
+
         if (selected) {
-            return setModsSelected([...modsSelected, mod]);
+            return setModsSelected(mods => {
+                if (mods.some(m => m.name === mod.name)) {
+                    return mods;
+                }
+                return [...mods, mod];
+            });
         }
-        const mods = [...modsSelected];
-        mods.splice(
-            mods.findIndex(m => m.name === mod.name),
-            1
-        );
-        setModsSelected(mods);
+
+        setModsSelected(mods => mods.filter(m => m.name !== mod.name));
     };
 
     const handleMoreInfo = (mod: Mod) => {
@@ -76,44 +81,50 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
         linkOpener.open(moreInfoMod.link);
     };
 
-    const installMods = () => {
+    const installMods = (reinstallAll: boolean): void => {
+
+        setReinstallAllMods(() => false);
+
         if (installing) {
             return;
         }
+
         const modsToInstall = modsSelected.filter(mod => {
-            const corespondingMod = modsAvailable.get(mod.category).find(availabeMod => availabeMod._id === mod._id);
             const installedMod = modsInstalled.get(mod.category)?.find(installedMod => installedMod.name === mod.name);
 
-            if (corespondingMod?.version && lt(corespondingMod.version, mod.version)) {
-                return false;
-            }
+            if(reinstallAll || !installedMod){ return true; }
 
-            if(installedMod?.version && lt(mod.version, installedMod?.version)){
-                return false;
-            }
-
-            return true;
+            return lt(installedMod.version, mod.version);
         });
 
+        if (!modsToInstall.length) {
+            notification.notifyInfo({ title: "pages.version-viewer.mods.notifications.all-mods-already-installed.title", desc: "pages.version-viewer.mods.notifications.all-mods-already-installed.description" });
+            loadMods();
+            return;
+        }
+
         modsManager.installMods(modsToInstall, version).then(() => {
-            lastValueFrom(loadMods());
+            loadMods();
         });
     };
 
-    const loadMods = (): Observable<void> => {
+    const loadMods = (): Promise<void> => {
         if (os.isOffline) {
-            return new Observable<void>(subscriber => subscriber.complete());
+            return Promise.resolve();
         }
 
-        return combineLatest([
-            modsManager.getAvailableMods(version),
-            modsManager.getInstalledMods(version)
-        ]).pipe(map(([available, installed]) => {
-            const defaultMods = configService.get<string[]>("default_mods" as DefaultConfigKey);
+        const promise = async () => {
+            const available = await lastValueFrom(modsManager.getAvailableMods(version));
+            const installed = await lastValueFrom(modsManager.getInstalledMods(version));
+            return [available, installed];
+        }
+
+        return promise().then(([available, installed]) => {
+            const defaultMods = installed?.length ? [] : configService.get<string[]>("default_mods" as DefaultConfigKey);
             setModsAvailable(() => modsToCategoryMap(available));
-            setModsSelected(() => available.filter(m => m.required || defaultMods.some(d => m.name.toLowerCase() === d.toLowerCase()) || installed.some(i => m.name === i.name)));
+            setModsSelected(() => available.filter(m => m.required || defaultMods.some(d => m.name?.toLowerCase() === d?.toLowerCase()) || installed.some(i => m.name === i.name)));
             setModsInstalled(() => modsToCategoryMap(installed));
-        }));
+        });
     };
 
     useEffect(() => {
@@ -141,14 +152,14 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
                 return onDisclamerDecline?.();
             }
 
-            subs.push(loadMods().subscribe());
+            loadMods();
 
             subs.push(
                 modsManager.isUninstalling$.pipe(
                     skip(1),
                     filter(uninstalling => !uninstalling)
                 ).subscribe(() => {
-                    subs.push(loadMods().subscribe());
+                    loadMods();
                 })
             );
         });
@@ -175,17 +186,25 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
             return <ModStatus text="pages.version-viewer.mods.loading-mods" image={BeatWaitingImg} spin />;
         }
         if (!modsAvailable.size) {
-            return <ModStatus text="pages.version-viewer.mods.mods-not-available" image={BeatConflictImg} />;
+            return (
+                <ModStatus text="pages.version-viewer.mods.mods-not-available" image={BeatConflictImg}>
+                    <span className="text-xl tracking-wide font-bold font-mono mt-1">({version.BSVersion})</span>
+                </ModStatus>
+            );
         }
         return (
             <>
-                <div className="grow overflow-scroll w-full min-h-0 scrollbar-thin scrollbar-thumb-neutral-900 scrollbar-thumb-rounded-full">
+                <div className="grow overflow-y-scroll w-full min-h-0 scrollbar-default p-0 m-0">
                     <ModsGrid modsMap={modsAvailable} installed={modsInstalled} modsSelected={modsSelected} onModChange={handleModChange} moreInfoMod={moreInfoMod} onWantInfos={handleMoreInfo} />
                 </div>
-                <div className="h-10 shrink-0 flex items-center justify-between px-3">
-                    <BsmButton className="text-center rounded-md px-2 py-[2px]" text="pages.version-viewer.mods.buttons.more-infos" typeColor="cancel" withBar={false} disabled={!moreInfoMod} onClick={handleOpenMoreInfo} style={{ width: downloadWith }} />
-                    <div ref={downloadRef}>
-                        <BsmButton className="text-center rounded-md px-2 py-[2px]" text="pages.version-viewer.mods.buttons.install-or-update" withBar={false} disabled={installing} typeColor="primary" onClick={installMods} />
+                <div className="shrink-0 flex items-center justify-between px-3 py-2">
+                    <BsmButton className="flex items-center justify-center rounded-md px-1 h-8" text="pages.version-viewer.mods.buttons.more-infos" typeColor="cancel" withBar={false} disabled={!moreInfoMod} onClick={handleOpenMoreInfo} style={{ width: downloadWith }}/>
+                    <div ref={downloadRef} className="flex h-8 justify-center items-center gap-px overflow-hidden rounded-md">
+                        <div className="grow h-full relative">
+                            <BsmButton className="relative left-0 flex items-center justify-center px-2 size-full transition-[top] duration-200 ease-in-out" text="pages.version-viewer.mods.buttons.install-or-update" typeColor="primary" withBar={false} onClick={() => installMods(false)} style={{ top: reinstallAllMods ? "-100%" : "0" }} />
+                            <BsmButton className="relative left-0 flex items-center justify-center px-2 size-full transition-[top] duration-200 ease-in-out " text="pages.version-viewer.mods.buttons.reinstall-all" typeColor="primary" withBar={false} onClick={() => installMods(true)} style={{ top: reinstallAllMods ? "-100%" : "0" }}/>
+                        </div>
+                        <BsmButton className="flex items-center justify-center shrink-0 h-full" iconClassName="transition-transform size-full ease-in-out duration-200" iconStyle={{ transform: reinstallAllMods ? "rotate(360deg)" : "rotate(180deg)" }} icon="chevron-top" typeColor="primary" withBar={false} onClick={() => setReinstallAllMods(prev => !prev)}/>
                     </div>
                 </div>
             </>
@@ -194,18 +213,19 @@ export function ModsSlide({ version, onDisclamerDecline }: { version: BSVersion;
 
     return (
         <div ref={ref} className="shrink-0 w-full h-full px-8 pb-7 flex justify-center">
-            <div className="relative flex flex-col grow-0 bg-light-main-color-2 dark:bg-main-color-2 h-full w-full rounded-md shadow-black shadow-center overflow-hidden">{renderContent()}</div>
+            <div className="relative flex flex-col grow-0 bg-light-main-color-2 dark:bg-main-color-2 size-full rounded-md shadow-black shadow-center overflow-hidden">{renderContent()}</div>
         </div>
     );
 }
 
-function ModStatus({ text, image, spin = false }: { text: string; image: string; spin?: boolean }) {
+function ModStatus({ text, image, spin = false, children }: { text: string; image: string; spin?: boolean, children?: ReactNode}) {
     const t = useTranslation();
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 dark:text-gray-200">
             <img className={`w-32 h-32 ${spin ? "spin-loading" : ""}`} src={image} alt=" " />
-            <span className="text-xl mt-3 h-0 italic">{t(text)}</span>
+            <span className="text-xl mt-3 italic">{t(text)}</span>
+            {children}
         </div>
     );
 }

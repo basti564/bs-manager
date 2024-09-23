@@ -4,6 +4,7 @@ import { ProviderPlatform } from "shared/models/provider-platform.enum";
 const sep = process.platform === ProviderPlatform.WINDOWS ? "\\" : "/";
 
 contextBridge.exposeInMainWorld("electron", {
+    platform: process.platform,
     ipcRenderer: {
         sendMessage(channel: string, args: unknown[]) {
             ipcRenderer.send(channel, args);
@@ -23,6 +24,9 @@ contextBridge.exposeInMainWorld("electron", {
     },
     path: {
         sep,
+        basename: (path: string): string => {
+            return !path ? "" : path.split(sep).at(-1);
+        },
         join: (...args: string[]): string => {
             return args.join(sep);
         }

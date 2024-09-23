@@ -1,4 +1,4 @@
-import { CopyOptions, copy, createReadStream, ensureDir, move, realpath, stat, symlink } from "fs-extra";
+import { CopyOptions, MoveOptions, copy, createReadStream, ensureDir, move, pathExists, pathExistsSync, realpath, stat, symlink } from "fs-extra";
 import { access, mkdir, rm, readdir, unlink, lstat, readlink } from "fs/promises";
 import path from "path";
 import { Observable, concatMap, from } from "rxjs";
@@ -7,6 +7,7 @@ import { BsmException } from "shared/models/bsm-exception.model";
 import crypto from "crypto";
 import { execSync } from "child_process";
 import { tryit } from "../../shared/helpers/error.helpers";
+import { CustomError } from "shared/models/exceptions/custom-error.class";
 
 export async function pathExist(path: string): Promise<boolean> {
     try {
@@ -78,36 +79,37 @@ export async function getFilesInFolder(folderPath: string): Promise<string[]> {
     return dirEntries.filter(entry => entry.isFile()).map(file => path.join(folderPath, file.name));
 }
 
-export function moveFolderContent(src: string, dest: string): Observable<Progression> {
+export function moveFolderContent(src: string, dest: string, option?: MoveOptions): Observable<Progression> {
     const progress: Progression = { current: 0, total: 0 };
     return new Observable<Progression>(subscriber => {
         subscriber.next(progress);
         (async () => {
-            const srcExist = await pathExist(src);
+            const srcExist = await pathExists(src);
 
             if (!srcExist) {
                 return subscriber.complete();
             }
 
-            ensureFolderExist(dest);
+            await ensureFolderExist(dest);
 
             const files = await readdir(src, { encoding: "utf-8" });
             progress.total = files.length;
 
-            const promises = files.map(async file => {
+            for(const file of files){
                 const srcFullPath = path.join(src, file);
                 const destFullPath = path.join(dest, file);
-                if (await pathExist(destFullPath)) {
-                    progress.current++;
-                    return subscriber.next(progress);
+
+                const srcChilds = await readdir(srcFullPath, { encoding: "utf-8", recursive: true });
+                const allChildsAlreadyExist = srcChilds.every(child => pathExistsSync(path.join(destFullPath, child)));
+
+                if(!allChildsAlreadyExist){
+                    await move(srcFullPath, destFullPath, option);
                 }
-                await move(srcFullPath, destFullPath);
+
                 progress.current++;
                 subscriber.next(progress);
-            });
-
-            Promise.allSettled(promises).then(() => subscriber.complete());
-        })();
+            }
+        })().catch(err => subscriber.error(CustomError.fromError(err, err?.code))).finally(() => subscriber.complete());
     });
 }
 
@@ -151,7 +153,7 @@ export async function copyDirectoryWithJunctions(src: string, dest: string, opti
             const symlinkTarget = await readlink(sourcePath);
             const relativePath = path.relative(src, symlinkTarget);
             const newTarget = path.join(dest, relativePath);
-            await symlink(newTarget, destinationPath, "junction");
+            await symlink(newTarget, destinationPath, "junction"); // Only junction to avoid right issues while copying content of BSManager folder
         }
     }
 }
@@ -175,7 +177,7 @@ export async function dirSize(dirPath: string): Promise<number>{
         const realPath = await realpath(fullPath);
         const stat = await lstat(realPath);
 
-        if (stat.isDirectory()) { 
+        if (stat.isDirectory()) {
             return dirSize(fullPath);
         }
 
@@ -217,13 +219,27 @@ export function rxCopy(src: string, dest: string, option?: CopyOptions): Observa
 
 export async function ensurePathNotAlreadyExist(path: string): Promise<string> {
     let destPath = path;
-    let folderExist = await pathExist(destPath);
+    let folderExist = await pathExists(destPath);
     let i = 0;
 
     while (folderExist) {
         i++;
         destPath = `${path} (${i})`;
-        folderExist = await pathExist(destPath);
+        folderExist = await pathExists(destPath);
+    }
+
+    return destPath;
+}
+
+export function ensurePathNotAlreadyExistSync(path: string): string {
+    let destPath = path;
+    let folderExist = pathExistsSync(destPath);
+    let i = 0;
+
+    while (folderExist) {
+        i++;
+        destPath = `${path} (${i})`;
+        folderExist = pathExistsSync(destPath);
     }
 
     return destPath;
@@ -244,9 +260,23 @@ export function resolveGUIDPath(guidPath: string): string {
     return path.join(driveLetter, path.relative(guidVolume, guidPath));
 }
 
-export interface Progression<T = unknown> {
+export function getUniqueFileNamePath(filePath: string): string {
+    const { dir, name, ext } = path.parse(filePath);
+    let i = 0;
+    let newFileName = `${name}${ext}`;
+
+    while (pathExistsSync(path.join(dir, newFileName))) {
+        i++;
+        newFileName = `${name} (${i})${ext}`;
+    }
+
+    return path.join(dir, newFileName);
+}
+
+export interface Progression<T = unknown, D = unknown> {
     total: number;
     current: number;
     diff?: number;
     data?: T;
+    extra?: D;
 }

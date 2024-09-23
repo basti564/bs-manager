@@ -12,7 +12,7 @@ import { useService } from "renderer/hooks/use-service.hook";
 type Props = { modsMap: Map<string, Mod[]>; installed: Map<string, Mod[]>; modsSelected: Mod[]; onModChange: (selected: boolean, mod: Mod) => void; moreInfoMod?: Mod; onWantInfos: (mod: Mod) => void };
 
 export function ModsGrid({ modsMap, installed, modsSelected, onModChange, moreInfoMod, onWantInfos }: Props) {
-    
+
     const pageState = useService(PageStateService);
     const modsManager = useService(BsModsManagerService);
 
@@ -33,15 +33,11 @@ export function ModsGrid({ modsMap, installed, modsSelected, onModChange, moreIn
 
     const isDependency = (mod: Mod): boolean => {
         return modsSelected.some(m => {
-            const deps = m.dependencies.map(dep =>
-                Array.from(modsMap.values())
-                    .flat()
-                    .find(m => dep.name === m.name)
-            );
+            const deps = m.dependencies?.map(dep => Array.from(modsMap.values()).flat().find(m => dep.name === m.name)) ?? [];
             if (deps.some(depMod => depMod.name === mod.name)) {
                 return true;
             }
-            return deps.some(depMod => depMod.dependencies.some(depModDep => depModDep.name === mod.name));
+            return deps.some(depMod => depMod.dependencies?.some(depModDep => depModDep.name === mod.name));
         });
     };
 
@@ -61,8 +57,8 @@ export function ModsGrid({ modsMap, installed, modsSelected, onModChange, moreIn
     return (
         modsMap && (
             <div className="grid gap-y-1 grid-cols-[40px_min-content_min-content_min-content_1fr_min-content] bg-light-main-color-2 dark:bg-main-color-2 text-main-color-1 dark:text-light-main-color-1">
-                <span className="absolute z-10 top-0 w-full h-8 bg-inherit" />
-                <span className="z-10 sticky flex items-center justify-end top-0 bg-inherit border-b-2 border-main-color-1">
+                <span className="absolute z-10 top-0 w-full h-8 bg-inherit rounded-tl-md" />
+                <span className="z-10 sticky flex items-center justify-end top-0 bg-inherit border-b-2 border-main-color-1 rounded-tl-md">
                     <BsmButton className="rounded-full h-6 w-6 p-[2px]" withBar={false} icon="search" onClick={handleToogleFilter} />
                 </span>
                 <span className="z-10 sticky top-0 flex items-center bg-inherit border-main-color-1 border-b-2 h-8 px-1 whitespace-nowrap">{filterEnabled ? <motion.input autoFocus className="bg-main-color-1 rounded-md h-6 px-2" initial={{ width: 0 }} animate={{ width: "250px" }} transition={{ ease: "easeInOut", duration: 0.15 }} onChange={e => handleInput(e.target.value)} /> : <span className="w-full text-center">{t("pages.version-viewer.mods.mods-grid.header-bar.name")}</span>}</span>
@@ -78,7 +74,7 @@ export function ModsGrid({ modsMap, installed, modsSelected, onModChange, moreIn
                         modsMap.get(key).some(mod => mod.name.toLowerCase().includes(filter)) && (
                             <ul key={key} className="contents">
                                 <h2 className="col-span-full py-1 font-bold pl-3">{key}</h2>
-                                {modsMap.get(key).map(mod => mod.name.toLowerCase().includes(filter) && <ModItem key={mod.name} className="contents bg-light-main-color-3 dark:bg-main-color-1 text-main-color-1 dark:text-light-main-color-1 hover:cursor-pointer" mod={mod} installedVersion={installedModVersion(key, mod)} isDependency={isDependency(mod)} isSelected={isSelected(mod)} onChange={val => onModChange(val, mod)} onWantInfo={onWantInfos} wantInfo={mod.name === moreInfoMod?.name} />)}
+                                {modsMap.get(key).map(mod => mod.name?.toLowerCase().includes(filter) && <ModItem key={mod.name} className="contents bg-light-main-color-3 dark:bg-main-color-1 text-main-color-1 dark:text-light-main-color-1 hover:cursor-pointer" mod={mod} installedVersion={installedModVersion(key, mod)} isDependency={isDependency(mod)} isSelected={isSelected(mod)} onChange={val => onModChange(val, mod)} onWantInfo={onWantInfos} wantInfo={mod.name === moreInfoMod?.name} />)}
                             </ul>
                         )
                 )}

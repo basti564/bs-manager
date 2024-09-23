@@ -92,5 +92,22 @@
     },
     {
         "username": "Better_Axel"
-    }
+    },
+    {
+		"username": "Riley",
+		"type": "gold"
+	},
+    {
+        "username": "Austin"
+    },
+    {
+		"username": "Fatalution",
+		"type": "diamond",
+		"link": "https://x.com/fatalution"
+	},
+    {
+		"username": "Taurus Arcade",
+		"type": "gold"
+	}
+
 ]

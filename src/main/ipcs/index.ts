@@ -1,4 +1,5 @@
 import "./os-controls-ipcs";
+import "./bs-installer-ipcs.ts";
 import "./bs-launcher-ipcs";
 import "./bs-version-ipcs";
 import "./bs-uninstall-ipcs";
@@ -12,3 +13,4 @@ import "./bs-playlist-ipcs";
 import "./model-saber.ipcs";
 import "./bs-model-ipcs";
 import "./bs-version-download/bs-download-ipcs";
+import "./static-configuration.ipcs";

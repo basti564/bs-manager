@@ -104,8 +104,12 @@ export class AutoUpdaterService {
     }
 
     public async showChangelog(version:string): Promise<void>{
+            if (version.toLowerCase().includes("alpha")) {
+                throw new Error("Alpha version, skipping changelog");
+            }
+
             const changelog = await this.getChangelogVersion(version);
 
-            this.modal.openModal(ChangelogModal, changelog);
+            this.modal.openModal(ChangelogModal, {data: changelog});
     }
 }

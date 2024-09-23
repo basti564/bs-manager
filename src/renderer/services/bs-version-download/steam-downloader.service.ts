@@ -8,11 +8,11 @@ import { NotificationService } from "../notification.service";
 import { ProgressBarService } from "../progress-bar.service";
 import { LoginToSteamModal } from "renderer/components/modal/modal-types/bs-downgrade/login-to-steam-modal.component";
 import { SteamGuardModal } from "renderer/components/modal/modal-types/bs-downgrade/steam-guard-modal.component";
-import { LinkOpenerService } from "../link-opener.service";
 import { DepotDownloaderErrorEvent, DepotDownloaderEvent, DepotDownloaderEventType, DepotDownloaderInfoEvent, DepotDownloaderWarningEvent } from "../../../shared/models/bs-version-download/depot-downloader.model";
 import { SteamMobileApproveModal } from "renderer/components/modal/modal-types/bs-downgrade/steam-mobile-approve-modal.component";
 import { DownloaderServiceInterface } from "./bs-store-downloader.interface";
 import { AbstractBsDownloaderService } from "./abstract-bs-downloader.service";
+import { addFilterStringLog } from "renderer";
 
 export class SteamDownloaderService extends AbstractBsDownloaderService implements DownloaderServiceInterface{
 
@@ -29,7 +29,6 @@ export class SteamDownloaderService extends AbstractBsDownloaderService implemen
     private readonly ipcService: IpcService;
     private readonly progressBarService: ProgressBarService;
     private readonly notificationService: NotificationService;
-    private readonly linkOpener: LinkOpenerService;
 
     private readonly STEAM_SESSION_USERNAME_KEY = "STEAM-USERNAME";
 
@@ -41,21 +40,12 @@ export class SteamDownloaderService extends AbstractBsDownloaderService implemen
         this.modalService = ModalService.getInstance();
         this.progressBarService = ProgressBarService.getInstance();
         this.notificationService = NotificationService.getInstance();
-        this.linkOpener = LinkOpenerService.getInstance();
     }
 
     private setSteamSession(username: string): void { localStorage.setItem(this.STEAM_SESSION_USERNAME_KEY, username); }
-    private getSteamUsername(): string { return localStorage.getItem(this.STEAM_SESSION_USERNAME_KEY); }
+    public getSteamUsername(): string { return localStorage.getItem(this.STEAM_SESSION_USERNAME_KEY); }
     public deleteSteamSession(): void { localStorage.removeItem(this.STEAM_SESSION_USERNAME_KEY); }
     public sessionExist(): boolean { return !!localStorage.getItem(this.STEAM_SESSION_USERNAME_KEY); }
-
-    public async getInstallationFolder(): Promise<string> {
-        return lastValueFrom(this.ipcService.sendV2("bs-download.installation-folder"));
-    }
-
-    public setInstallationFolder(path: string): Observable<string> {
-        return this.ipcService.sendV2("bs-download.set-installation-folder",  path);
-    }
 
     // ### Downloading
 
@@ -85,7 +75,7 @@ export class SteamDownloaderService extends AbstractBsDownloaderService implemen
             take(1),
         ).subscribe(async () => {
             const logged$ = events$.pipe(filter(event => event.subType === DepotDownloaderInfoEvent.SteamID), take(1));
-            const res = await this.modalService.openModal(SteamMobileApproveModal, { logged$ });
+            const res = await this.modalService.openModal(SteamMobileApproveModal, {data: { logged$ }});
             if(res.exitCode !== ModalExitCode.COMPLETED){
                 return this.stopDownload();
             }
@@ -213,10 +203,14 @@ export class SteamDownloaderService extends AbstractBsDownloaderService implemen
             const qrCode$ = qrCodeDownload$.pipe(filter(event => event.type === DepotDownloaderEventType.Info && event.subType === DepotDownloaderInfoEvent.QRCode), map(event => event.data as string));
             const logged$ = qrCodeDownload$.pipe(filter(event => event.type === DepotDownloaderEventType.Info && event.subType === DepotDownloaderInfoEvent.SteamID), map(event => event.data as string), take(1));
 
-            const loginRes = await this.modalService.openModal(LoginToSteamModal, { qrCode$, logged$ });
+            const loginRes = await this.modalService.openModal(LoginToSteamModal, {data: { qrCode$, logged$ }});
 
             if(loginRes.exitCode !== ModalExitCode.COMPLETED){
                 return Promise.resolve();
+            }
+
+            if(loginRes?.data?.password){
+                addFilterStringLog(loginRes.data.password);
             }
 
             if(loginRes.data.stay){
@@ -228,8 +222,6 @@ export class SteamDownloaderService extends AbstractBsDownloaderService implemen
             return lastValueFrom(download$);
 
         })();
-
-        // *** TEST EXPIRATION MOBILE APP APROVAL ***
 
         return downloadPromise.then(() => {}).finally(() => {
             this.downloadProgress$.next(0);

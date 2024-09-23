@@ -14,7 +14,8 @@
         "refuse": "拒絕",
         "apply": "應用",
         "copy": "複製",
-        "copied": "已複製!"
+        "copied": "已複製!",
+        "confirm": "確認"
     },
     "nav-bar": {
         "add-version": "新增版本",
@@ -73,7 +74,8 @@
                 "mods-not-available": "該版本 BeatSaber 暫無可用 Mod",
                 "buttons": {
                     "more-infos": "更多資訊",
-                    "install-or-update": "安裝或更新"
+                    "install-or-update": "安裝或更新",
+                    "reinstall-all": "重新安裝全部"
                 },
                 "mods-grid": {
                     "header-bar": {
@@ -84,6 +86,12 @@
                         "dropdown": {
                             "uninstall-all": "全部移除"
                         }
+                    }
+                },
+                "notifications": {
+                    "all-mods-already-installed": {
+                        "title": "模組已安裝",
+                        "description": "所有選中的模組已經安裝"
                     }
                 }
             },
@@ -112,6 +120,7 @@
                 "title": "Steam & Oculus",
                 "description": "登出後，您可以在下一次下載 Beat Saber 時切換帳戶。",
                 "logout": "登出",
+                "logout-success": "登出成功",
                 "download-platform": {
                     "title": "，預設平台",
                     "desc": "選擇要下載 BeatSaber 的預設平台。",
@@ -131,7 +140,7 @@
             },
             "installation-folder": {
                 "title": "安裝文件夾",
-                "description": "為 BeatSaber 不同版本及未來其他特性修改預設文件夾",
+                "description": "更改將包含 BSManager 下載的所有內容的文件夾。",
                 "choose-folder": "選擇文件夾"
             },
             "additional-content": {
@@ -194,6 +203,34 @@
             "changelogs": {
                 "open" : "🚀 探索更新日誌！",
                 "not-founds": "😕 噢，找不到更新日誌！"
+            },
+            "advanced": {
+                "title": "高级设置",
+                "description": "BSManager的高级设置。",
+                "hardware-acceleration": {
+                    "title": "硬體加速",
+                    "description": "啟用硬體加速以使用您的GPU並提高BSManager的性能。如果您遇到幀丟失，請關閉此功能。",
+                    "modal": {
+                        "title": "需要重啟",
+                        "body": "更改硬體加速設置將退出並重新啟動BSManager。您確定要這樣做嗎？",
+                        "confirm-btn": "是的，我確定"
+                    },
+                    "error-notification": {
+                        "message": "發生錯誤，無法禁用硬體加速。"
+                    }
+                },
+                "use-symlinks": {
+                    "title": "使用符號鏈接",
+                    "description": "使用符號鏈接而不是連接來鏈接文件夾。僅在確實需要時才啟用此功能。",
+                    "modal": {
+                        "title": "符號鏈接權限",
+                        "body": "創建符號鏈接時，BSManager將需要管理員權限或啟用開發者模式。您確定要繼續嗎？",
+                        "confirm-btn": "是的，我確定"
+                    },
+                    "error-notification": {
+                        "message": "發生錯誤，無法更改符號鏈接設置。"
+                    }
+                }
             }
         }
     },
@@ -405,7 +442,8 @@
                     "CantEditSteam": "無法編輯",
                     "CantRename": "無法重命名",
                     "VersionAlreadExist": "該版本已存在",
-                    "CantClone": "無法複製"
+                    "CantClone": "無法複製",
+                    "UnknownError": "發生了未知錯誤"
                 },
                 "msg": {
                     "CantEditSteam": "你不能編輯 Steam 版本。不過你可以複製它。"
@@ -477,6 +515,15 @@
                 "userdata-backup-created": {
                     "title": "備份已創建",
                     "msg": "共享 “UserData” 文件夾可能會產生錯誤，如果出現問題，請取消關聯該文件夾以恢復備份"
+                }
+            },
+            "linking-error": {
+                "title": "連結文件夾時出錯",
+                "msg": {
+                    "EPERM": "BSManager沒有必要的權限來連結文件夾。",
+                    "EACCES": "BSManager沒有必要的權限來連結文件夾。",
+                    "ENOSPC": "磁碟已滿，請騰出空間後再試。",
+                    "UNKNOWN_ERROR": "連結文件夾時發生未知錯誤。"
                 }
             }
         },
@@ -723,12 +770,20 @@
             },
             "launch-as-admin": "以管理員身份啟動",
             "not-remind-me": "不再提醒我"
+        },
+        "ask-install-path": {
+            "title": "安裝文件夾",
+            "choose-folder-description": "選擇將包含 BSManager 下載的所有內容的文件夾。(版本、mod、地圖、播放列表等)",
+            "choose-folder": "選擇文件夾",
+            "default": "預設",
+            "default-tooltip": "預設為您的主資料夾"
         }
     },
     "maps": {
         "map-filter-panel": {
             "duration": "時長",
             "nps" : "每秒音符數",
+            "njs": "音符跳躍速度",
             "tags": "標籤",
             "specificities": "general",
             "requirements": "要求",
@@ -738,7 +793,7 @@
             "accuracy": "精確度",
             "balanced": "平衡",
             "challenge": "挑戰",
-            "dancestyle": "舞蹈",
+            "dance-style": "舞蹈",
             "fitness": "健身",
             "speed": "速度",
             "tech": "技術"
@@ -758,13 +813,13 @@
             "rb": "R&B",
             "holiday": "Holiday",
             "vocaloid": "Vocaloid",
-            "jrock": "J-rock",
+            "j-rock": "J-rock",
             "trance": "Trance",
             "drumbass": "Drum & Bass",
             "comedy": "Comedy",
             "instrumental": "Instrumental",
             "hardcore": "Hardcore",
-            "kpop": "K-pop",
+            "k-pop": "K-pop",
             "indie": "Indie",
             "techno": "Techno",
             "house": "House",
@@ -775,7 +830,7 @@
             "metal": "Metal",
             "anime": "Anime",
             "hiphop": "Hiphop",
-            "jpop": "J-pop",
+            "j-pop": "J-pop",
             "rock": "Rock",
             "pop": "Pop",
             "electronic": "Electronic",
@@ -996,6 +1051,122 @@
                 "STEAM_LAUNCHED": "Steam 成功啟動！",
                 "UNABLE_TO_LAUNCH_STEAM": "無法啟動 Steam, 強制啟動 Beat Saber ..."
             }
+        }
+    },
+    "playlist": {
+        "error-playlist-creation-title": "建立播放清單時發生錯誤",
+        "error-playlist-creation-desc": "建立播放清單時發生錯誤。",
+        "playlist-created-title": "播放清單已建立",
+        "playlist-created-desc": "播放清單已成功建立。您現在可以同步其地圖了！",
+        "download-playlist": "下載播放清單",
+        "synchronize-playlist": "同步播放清單",
+        "synchronize-maps": "同步地圖",
+        "error-playlists-synchronization-title": "同步播放清單時發生錯誤",
+        "error-playlists-synchronization-desc": "同步播放清單時發生錯誤。",
+        "playlists-synchronized-title": "播放清單已同步！",
+        "playlists-synchronized-desc": "播放清單及其地圖已下載。",
+        "playlists-export-error-title": "匯出播放清單時發生錯誤",
+        "playlists-export-error-desc": "匯出播放清單時發生錯誤。",
+        "playlists-exported-title": "播放清單已匯出！",
+        "playlists-exported-desc": "播放清單已成功匯出。",
+        "playlists-with-maps-exported-desc": "播放清單及其地圖已成功匯出。",
+        "playlist-delete-error-title": "刪除播放清單時發生錯誤",
+        "playlist-delete-error-desc": "刪除播放清單時發生錯誤。",
+        "playlists-deleted-title": "播放清單已刪除！",
+        "playlists-deleted-desc": "播放清單已成功刪除。",
+        "edit-playlist": "編輯播放清單",
+        "playlist-edit-error-title": "編輯播放清單時發生錯誤",
+        "playlist-edit-error-desc": "編輯播放清單時發生錯誤。",
+        "playlist-edited-title": "播放清單已編輯！",
+        "playlist-edited-desc": "播放清單已成功修改。您現在可以同步其地圖了！",
+        "playlists-loading": "正在載入播放清單...",
+        "no-playlists": "沒有播放清單",
+        "download-playlists": "下載播放清單",
+        "created-by": "建立者",
+        "stop-download": "停止下載",
+        "cancel-download": "取消下載",
+        "open-file": "開啟檔案",
+        "link-playlists": "連結播放清單",
+        "link-playlist-desc": "連結播放清單允許在所有版本之間共享播放清單。一旦連結，此版本將受益於共享播放清單",
+        "link-playlist-info": "新增和刪除播放清單也將被共享",
+        "keep-playlists": "保留播放清單",
+        "keep-playlists-tip": "保留播放清單將把當前版本的播放清單移動到共享播放清單資料夾。否則，它們將遺失",
+        "unlink-playlists": "取消連結播放清單",
+        "unlink-playlist-desc": "警告，取消連結播放清單將不再允許此版本使用共享播放清單。",
+        "unlink-keep-playlists-tip": "保留播放清單將為當前版本建立共享播放清單的副本。否則，此版本將不保留任何播放清單。",
+        "delete-playlist-ask": "刪除播放清單？",
+        "delete-playlists-ask": "刪除播放清單？",
+        "delete-playlist-desc": "您確定要刪除播放清單 \"{playlistTitle}\" 嗎？",
+        "delete-playlists-desc": "您確定要刪除 {nb} 個播放清單嗎？",
+        "delete-maps": "刪除地圖",
+        "delete-playlist-maps-tip": "如果啟用，播放清單中的所有地圖都將被刪除",
+        "delete-playlists-maps-tip": "如果啟用，播放清單中的所有地圖都將被刪除",
+        "export-playlist-ask": "匯出播放清單？",
+        "export-playlists-ask": "匯出播放清單？",
+        "export-playlist-desc": "您確定要匯出播放清單 \"{playlistTitle}\" 嗎？",
+        "export-playlists-desc": "您確定要匯出 {nb} 個播放清單嗎？",
+        "export-maps": "匯出地圖",
+        "export-playlist-maps-tip": "如果啟用，播放清單中的所有地圖也將被匯出",
+        "export-playlists-maps-tip": "如果啟用，播放清單中的所有地圖也將被匯出",
+        "export": "匯出",
+        "need-clone-title": "警告",
+        "need-clone-desc-1": "此播放清單已從外部網站下載，並包含同步連結。",
+        "need-clone-desc-2": "為避免在同步過程中遺失更改，播放清單將被複製，並刪除其同步連結。",
+        "need-clone-desc-3": "然後，如果您願意，可以刪除原始播放清單。",
+        "understood": "我明白了",
+        "synchronize-playlist-ask": "同步播放清單？",
+        "synchronize-playlists-ask": "同步播放清單？",
+        "synchronize-playlist-desc": "您確定要同步播放清單 \"{playlistTitle}\" 嗎？",
+        "synchronize-playlists-desc": "您確定要同步 {nb} 個播放清單嗎？",
+        "synchronize-playlist-tip": "此操作更新播放清單並下載缺失的地圖；可能需要幾分鐘。",
+        "synchronize": "同步",
+        "curated": "精選",
+        "verified-mapper": "已驗證的製圖者",
+        "empty-playlists": "空播放清單",
+        "search-playlist": "搜尋播放清單",
+        "no-playlists-found": "未找到播放清單",
+        "error-occur-while-loading-playlists": "載入播放清單時發生錯誤",
+        "error-occur-while-loading-playlist": "載入播放清單時發生錯誤",
+        "loading-maps": "正在載入地圖...",
+        "no-maps-found-for-playlist": "未找到此播放清單的地圖",
+        "playlist-contain-no-maps": "播放清單不包含地圖",
+        "no-map-installed-for-playlist": "此播放清單沒有已安裝的地圖",
+        "playlist-is-waiting-to-download": "播放清單正在等待下載",
+        "download-maps": "下載地圖",
+        "download-missing-maps": "下載缺失的地圖",
+        "playlist-is-downloading": "播放清單正在下載",
+        "some-playlist-maps-are-missing": "此播放清單中的一些地圖缺失",
+        "create-a-playlist": "建立播放清單",
+        "synchronize-playlists": "同步播放清單",
+        "export-playlists": "匯出播放清單",
+        "delete-playlists": "刪除播放清單",
+        "choose-image": "選擇圖片",
+        "title": "標題",
+        "playlist-title": "播放清單標題",
+        "description": "描述",
+        "playlist-description": "播放清單描述",
+        "author": "作者",
+        "playlist-author": "播放清單作者",
+        "save": "儲存",
+        "loading": "載入中...",
+        "installed": "已安裝",
+        "no-map-found": "未找到地圖",
+        "edit-playlist-shortcuts": "按住 Shift 或 Ctrl 選擇多個地圖",
+        "add-to-playlist": "新增到播放清單",
+        "remove-from-playlist": "從播放清單中移除",
+        "playlist-is-empty": "播放清單為空",
+        "continue": "繼續",
+        "nb-maps": "地圖數量",
+        "nb-mappers": "製圖者數量",
+        "duration": "持續時間",
+        "nps": "每秒音符數",
+        "date-picker": {
+            "start-date-end-date": "開始日期 — 結束日期",
+            "all": "全部",
+            "last-24h": "最近24小時",
+            "last-week": "上週",
+            "last-month": "上個月",
+            "3-last-month": "最近3個月"
         }
     },
     "dateformat": {

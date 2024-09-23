@@ -2,6 +2,8 @@ import { shell, dialog, app, BrowserWindow } from "electron";
 import { NotificationService } from "../services/notification.service";
 import { IpcService } from "../services/ipc.service";
 import { from, of } from "rxjs";
+import { readFileSync } from "fs-extra";
+import log from "electron-log";
 
 // TODO IMPROVE WINDOW CONTROL BY USING WINDOW SERVICE
 
@@ -13,6 +15,10 @@ ipc.on("new-window", (args, reply) => {
 
 ipc.on("choose-folder", (args, reply) => {
     reply(from(dialog.showOpenDialog({ properties: ["openDirectory"], defaultPath: args ?? "" })));
+});
+
+ipc.on("choose-file", async (args, reply) => {
+    reply(from(dialog.showOpenDialog({ properties: ["openFile"], defaultPath: args ?? "" })));
 });
 
 ipc.on("window.progression",(args, reply, sender) => {
@@ -40,4 +46,29 @@ ipc.on("open-logs", (_, reply) => {
 ipc.on("notify-system", (args, reply) => {
     const systemNotification = NotificationService.getInstance();
     reply(of(systemNotification.notify(args)));
+});
+
+ipc.on("view-path-in-explorer", (args, reply) => {
+    reply(of(shell.showItemInFolder(args)));
+});
+
+ipc.on("choose-image", (args, reply) => {
+    reply(from(dialog.showOpenDialog({ properties: ["openFile", "multiSelections"], filters: [{ name: "Images", extensions: ["jpg", "png", "jpeg"] }] }).then(res => {
+        if (res.canceled || !res.filePaths) {
+            return [];
+        }
+        if(args.base64){
+            return res.filePaths.map(path => Buffer.from(readFileSync(path)).toString("base64"));
+        }
+        return res.filePaths;
+    })));
+});
+
+ipc.on("restart-app", (_, reply) => {
+    log.info("App was requested to restart");
+
+    reply(of()); // Reply before restarting to avoid any issue
+
+    app.relaunch();
+    app.quit();
 });

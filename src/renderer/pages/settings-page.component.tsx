@@ -41,8 +41,14 @@ import { OculusIcon } from "renderer/components/svgs/icons/oculus-icon.component
 import { BsDownloaderService } from "renderer/services/bs-version-download/bs-downloader.service";
 import { AutoUpdaterService } from "renderer/services/auto-updater.service";
 import BeatWaitingImg from "../../../assets/images/apngs/beat-waiting.png";
+import BeatConflict from "../../../assets/images/apngs/beat-conflict.png";
 import { logRenderError } from "renderer";
-
+import { BSLauncherService } from "renderer/services/bs-launcher.service";
+import { SettingToogleSwitchGrid } from "renderer/components/settings/setting-toogle-switch-grid.component";
+import { BasicModal } from "renderer/components/modal/basic-modal.component";
+import { StaticConfigurationService } from "renderer/services/static-configuration.service";
+import { tryit } from "shared/helpers/error.helpers";
+import { InstallationLocationService } from "renderer/services/installation-location.service";
 
 export function SettingsPage() {
 
@@ -51,6 +57,7 @@ export function SettingsPage() {
     const ipcService = useService(IpcService);
     const modalService = useService(ModalService);
     const bsDownloader = useService(BsDownloaderService);
+    const bsLauncher = useService(BSLauncherService);
     const steamDownloader = useService(SteamDownloaderService);
     const progressBarService = useService(ProgressBarService);
     const notificationService = useService(NotificationService);
@@ -61,6 +68,8 @@ export function SettingsPage() {
     const modelsManager = useService(ModelsManagerService);
     const versionLinker = useService(VersionFolderLinkerService);
     const autoUpdater = useService(AutoUpdaterService);
+    const staticConfig = useService(StaticConfigurationService);
+    const installationLocationService = useService(InstallationLocationService);
 
     const { firstColor, secondColor } = useThemeColor();
 
@@ -85,11 +94,14 @@ export function SettingsPage() {
     const downloadStore = useObservable(() => bsDownloader.defaultStore$);
 
     const [installationFolder, setInstallationFolder] = useState(null);
+    const [protonPath, setProtonPath] = useState(bsLauncher.getProtonPath());
     const [showSupporters, setShowSupporters] = useState(false);
     const [mapDeepLinksEnabled, setMapDeepLinksEnabled] = useState(false);
     const [playlistsDeepLinkEnabled, setPlaylistsDeepLinkEnabled] = useState(false);
     const [modelsDeepLinkEnabled, setModelsDeepLinkEnabled] = useState(false);
     const [hasDownloaderSession, setHasDownloaderSession] = useState(false);
+    const [hardwareAccelerationEnabled, setHardwareAccelerationEnabled] = useState(true);
+    const [useSymlink, setUseSymlink] = useState(false);
     const appVersion = useObservable(() => ipcService.sendV2("current-version"));
 
     const [isChangelogAvailable, setIsChangelogAvailable] = useState(true);
@@ -101,6 +113,9 @@ export function SettingsPage() {
         mapsManager.isDeepLinksEnabled().then(enabled => setMapDeepLinksEnabled(() => enabled));
         playlistsManager.isDeepLinksEnabled().then(enabled => setPlaylistsDeepLinkEnabled(() => enabled));
         modelsManager.isDeepLinksEnabled().then(enabled => setModelsDeepLinkEnabled(() => enabled));
+
+        staticConfig.get("disable-hadware-acceleration").then(disabled =>setHardwareAccelerationEnabled(() => disabled !== true));
+        staticConfig.get("use-symlinks").then(useSymlinks => setUseSymlink(() => useSymlinks));
     }, []);
 
     const allDeepLinkEnabled = mapDeepLinksEnabled && playlistsDeepLinkEnabled && modelsDeepLinkEnabled;
@@ -111,7 +126,9 @@ export function SettingsPage() {
     };
 
     const loadInstallationFolder = () => {
-        steamDownloader.getInstallationFolder().then(res => setInstallationFolder(res));
+        installationLocationService.getInstallationFolder().then(res => {
+            setInstallationFolder(res);
+        });
     };
 
     const loadDownloadersSession = () => {
@@ -119,7 +136,14 @@ export function SettingsPage() {
     }
 
     const clearDownloadersSession = () => {
+        if (!hasDownloaderSession) {
+            return;
+        }
+
         steamDownloader.deleteSteamSession();
+        notificationService.notifyInfo({
+            title: "pages.settings.steam-and-oculus.logout-success",
+        });
         loadDownloadersSession();
     }
 
@@ -156,6 +180,20 @@ export function SettingsPage() {
         clearTimeout(timeoutId);
     };
 
+    const setDefaultProtonPath = () => {
+        if (!progressBarService.require()) {
+            return;
+        }
+
+        lastValueFrom(ipcService.sendV2("choose-file")).then(res => {
+            if (!res.canceled && res.filePaths?.length) {
+                const protonPath = res.filePaths[0];
+                setProtonPath(protonPath);
+                bsLauncher.setProtonPath(protonPath);
+            }
+        });
+    };
+
     const setDefaultInstallationFolder = () => {
         if (!progressBarService.require()) {
             return;
@@ -173,7 +211,7 @@ export function SettingsPage() {
 
                 notificationService.notifySuccess({ title: "notifications.settings.move-folder.success.titles.transfer-started", desc: "notifications.settings.move-folder.success.descs.transfer-started" });
 
-                lastValueFrom(steamDownloader.setInstallationFolder(fileChooserRes.filePaths[0])).then(res => {
+                lastValueFrom(installationLocationService.setInstallationFolder(fileChooserRes.filePaths[0], true)).then(res => {
 
                     progressBarService.complete();
                     progressBarService.hide(true);
@@ -201,6 +239,66 @@ export function SettingsPage() {
         });
     };
 
+    const onChangeHardwareAcceleration = async (newHardwareAccelerationEnabled: boolean) => {
+        if(newHardwareAccelerationEnabled === hardwareAccelerationEnabled){ return; }
+
+        const res = await modalService.openModal(BasicModal, { data: {
+            title: "pages.settings.advanced.hardware-acceleration.modal.title",
+            body: "pages.settings.advanced.hardware-acceleration.modal.body",
+            image: BeatConflict,
+            buttons: [
+                { id: "cancel", text: "misc.cancel", type: "cancel", isCancel: true },
+                { id: "confirm", text: "pages.settings.advanced.hardware-acceleration.modal.confirm-btn", type: "error" }
+            ]
+        }});
+
+        if(res.exitCode !== ModalExitCode.COMPLETED || res.data !== "confirm"){ return; }
+
+        const { error } = await tryit(() => staticConfig.set("disable-hadware-acceleration", !newHardwareAccelerationEnabled));
+
+        if(error){
+            notificationService.notifyError({ title: "notifications.types.error", desc: "pages.settings.advanced.hardware-acceleration.error-notification.message" });
+            setHardwareAccelerationEnabled(() => !newHardwareAccelerationEnabled);
+                return;
+        }
+
+        setHardwareAccelerationEnabled(() => newHardwareAccelerationEnabled);
+
+        if(!progressBarService.require()){
+            return;
+        }
+
+        await lastValueFrom(ipcService.sendV2("restart-app"));
+    };
+
+    const onChangeUseSymlinks = async (newUseSymlink: boolean) => {
+
+        if(newUseSymlink === useSymlink){ return; }
+
+        if(newUseSymlink){
+            const res = await modalService.openModal(BasicModal, { data: {
+                title: "pages.settings.advanced.use-symlinks.modal.title",
+                body: "pages.settings.advanced.use-symlinks.modal.body",
+                image: BeatConflict,
+                buttons: [
+                    { id: "cancel", text: "misc.cancel", type: "cancel", isCancel: true },
+                    { id: "confirm", text: "pages.settings.advanced.use-symlinks.modal.confirm-btn", type: "error" }
+                ]
+            }});
+
+            if(res.exitCode !== ModalExitCode.COMPLETED || res.data !== "confirm"){ return; }
+        }
+
+        const { error } = await tryit(() => staticConfig.set("use-symlinks", newUseSymlink));
+
+        if(error){
+            notificationService.notifyError({ title: "notifications.types.error", desc: "pages.settings.advanced.use-symlinks.error-notification.message" });
+            return;
+        }
+
+        setUseSymlink(() => newUseSymlink);
+    }
+
     const toogleShowSupporters = () => {
         setShowSupporters(show => !show);
     };
@@ -227,9 +325,14 @@ export function SettingsPage() {
 
     const switchDeepLink = async (manager: MapsManagerService | PlaylistsManagerService | ModelsManagerService, enable: boolean, showNotification: boolean, setter: Dispatch<SetStateAction<boolean>>) => {
         const res = await (enable ? manager.enableDeepLink() : manager.disableDeepLink()).then(() => true).catch(() => false);
-        if(showNotification){
-            res ? showDeepLinkSuccess(enable) : showDeepLinkError(enable);
+
+        if(showNotification && res){
+            showDeepLinkSuccess(enable)
         }
+        else if(showNotification && !res){
+            showDeepLinkError(enable);
+        }
+
         const isEnable = await manager.isDeepLinksEnabled();
         setter(() => isEnable);
         return res;
@@ -241,11 +344,16 @@ export function SettingsPage() {
     const toogleAllDeepLinks = async () => {
         const res = (await Promise.all([switchDeepLink(mapsManager, !allDeepLinkEnabled, false, setMapDeepLinksEnabled), switchDeepLink(playlistsManager, !allDeepLinkEnabled, false, setPlaylistsDeepLinkEnabled), switchDeepLink(modelsManager, !allDeepLinkEnabled, false, setModelsDeepLinkEnabled)])).every(activation => activation === true);
 
-        res ? showDeepLinkSuccess(allDeepLinkEnabled) : showDeepLinkError(allDeepLinkEnabled);
+        if(res){
+            showDeepLinkSuccess(allDeepLinkEnabled);
+        }
+        else{
+            showDeepLinkError(allDeepLinkEnabled);
+        }
     };
 
     return (
-        <div className="w-full h-full flex justify-center overflow-y-scroll scrollbar-thin scrollbar-thumb-rounded-full scrollbar-thumb-neutral-900 text-gray-800 dark:text-gray-200">
+        <div className="w-full h-full flex justify-center overflow-y-scroll scrollbar-default text-gray-800 dark:text-gray-200">
             <div className="max-w-2xl w-full h-fit">
                 <div className="inline-block sticky top-8 left-[calc(100%)] translate-x-12 grow-0 w-9 h-9">
                     <BsmButton className="inline-block grow-0 bg-transparent sticky h-full w-full top-20 right-20 !m-0 rounded-full p-1" onClick={() => nav(-1)} icon="close" withBar={false} />
@@ -282,7 +390,16 @@ export function SettingsPage() {
                         <span className="block text-ellipsis overflow-hidden min-w-0" title={installationFolder}>
                             {installationFolder}
                         </span>
-                        <BsmButton onClick={setDefaultInstallationFolder} className="shrink-0 whitespace-nowrap mr-2 px-2 font-bold italic text-sm rounded-md" text="pages.settings.installation-folder.choose-folder" withBar={false} />
+                        <BsmButton onClick={setDefaultInstallationFolder} className="shrink-1 whitespace-nowrap mr-2 px-2 font-bold italic text-sm rounded-md" text="pages.settings.installation-folder.choose-folder" withBar={false} />
+                    </div>
+                </SettingContainer>
+
+                <SettingContainer os="linux" title="pages.settings.proton-path.title" description="pages.settings.proton-path.description">
+                    <div className="relative flex items-center justify-between w-full h-8 bg-light-main-color-1 dark:bg-main-color-1 rounded-md pl-2 py-1">
+                        <span className="block text-ellipsis overflow-hidden min-w-0 whitespace-nowrap" title={protonPath}>
+                            {protonPath}
+                        </span>
+                        <BsmButton onClick={setDefaultProtonPath} className="shrink-0 whitespace-nowrap mr-2 px-2 font-bold italic text-sm rounded-md" text="pages.settings.proton-path.choose-file" withBar={false} />
                     </div>
                 </SettingContainer>
 
@@ -463,6 +580,14 @@ export function SettingsPage() {
                         </div>
                     </SettingContainer>
                 </SettingContainer>
+
+                <SettingContainer title="pages.settings.advanced.title" description="pages.settings.advanced.description">
+                    <SettingToogleSwitchGrid items={[
+                        { checked: hardwareAccelerationEnabled, text: t("pages.settings.advanced.hardware-acceleration.title"), desc: t("pages.settings.advanced.hardware-acceleration.description"), onChange: onChangeHardwareAcceleration },
+                        { checked: useSymlink, text: t("pages.settings.advanced.use-symlinks.title"), desc: t("pages.settings.advanced.use-symlinks.description"), onChange: onChangeUseSymlinks },
+                    ]}/>
+                </SettingContainer>
+
                 <Tippy content={isChangelogAvailable ? t("pages.settings.changelogs.open") : t("pages.settings.changelogs.not-founds")} placement="left" className="font-bold bg-main-color-3">
                     <div className="!bg-light-main-color-1 dark:!bg-main-color-1 rounded-md py-1 px-2 font-bold float-right mb-5 hover:brightness-125 h-auto w-auto">
                         <BsmButton onClick={handleVersionClick} text={`v${appVersion}`} withBar={false} typeColor="none"/>

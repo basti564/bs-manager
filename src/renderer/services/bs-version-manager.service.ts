@@ -1,5 +1,5 @@
 import { BSVersion } from "shared/bs-version.interface";
-import { BehaviorSubject, Observable, Subscription, lastValueFrom, map, shareReplay, throwError } from "rxjs";
+import { BehaviorSubject, Observable, Subscription, lastValueFrom, shareReplay, throwError } from "rxjs";
 import { IpcService } from "./ipc.service";
 import { ModalExitCode, ModalService } from "./modale.service";
 import { NotificationService } from "./notification.service";
@@ -8,6 +8,7 @@ import { EditVersionModal } from "renderer/components/modal/modal-types/edit-ver
 import { popElement } from "shared/helpers/array.helpers";
 import { ImportVersionModal } from "renderer/components/modal/modal-types/import-version-modal.component";
 import { Progression } from "main/helpers/fs.helpers";
+import { CustomError } from "shared/models/exceptions/custom-error.class";
 
 export class BSVersionManagerService {
     private static instance: BSVersionManagerService;
@@ -65,8 +66,7 @@ export class BSVersionManagerService {
     }
 
     public async editVersion(version: BSVersion): Promise<BSVersion> {
-        const modalRes = await this.modalService.openModal(EditVersionModal, { version, clone: false });
-
+        const modalRes = await this.modalService.openModal(EditVersionModal, {data: { version, clone: false }});
         if (modalRes.exitCode !== ModalExitCode.COMPLETED) {
             return null;
         }
@@ -78,10 +78,19 @@ export class BSVersionManagerService {
             this.askInstalledVersions();
             return res;
         }).catch(e => {
-            this.notification.notifyError({
-                title: `notifications.custom-version.errors.titles.${e.error.title}`,
-                ...(e.error.message && { desc: `notifications.custom-version.errors.msg.${e.error.message}` }),
-            });
+
+            const knownErrorTitlesCodes = ["CantEditSteam", "VersionAlreadExist", "CantRename"];
+            const knownErrorMessagesCodes = ["CantEditSteam"];
+
+            if(knownErrorTitlesCodes.includes(e.code)){
+                this.notification.notifyError({
+                    title: `notifications.custom-version.errors.titles.${e.code}`,
+                    desc: knownErrorMessagesCodes.includes(e.code) ? `notifications.custom-version.errors.msg.${e.code}` : null
+                });
+            } else {
+                this.notification.notifyError({ title: `notifications.custom-version.errors.titles.UnknownError` });
+            }
+
             return null;
         })
     }
@@ -90,7 +99,7 @@ export class BSVersionManagerService {
         if (!this.progressBar.require()) {
             return null;
         }
-        const modalRes = await this.modalService.openModal(EditVersionModal, { version, clone: true });
+        const modalRes = await this.modalService.openModal(EditVersionModal, {data: { version, clone: true }});
         if (modalRes.exitCode !== ModalExitCode.COMPLETED) {
             return null;
         }
@@ -104,11 +113,16 @@ export class BSVersionManagerService {
             this.notification.notifySuccess({ title: "notifications.custom-version.success.titles.CloningFinished" });
             this.askInstalledVersions();
             return res;
-        }).catch(e => {
-            this.notification.notifyError({
-                title: `notifications.custom-version.errors.titles.${e.error.title}`,
-                ...(e.error.message && { desc: `notifications.custom-version.errors.msg.${e.error.message}` }),
-            });
+        }).catch((e: CustomError) => {
+
+            const knownErrorTitlesCodes = ["VersionAlreadExist", "CantClone"];
+
+            if(knownErrorTitlesCodes.includes(e.code)){
+                this.notification.notifyError({ title: `notifications.custom-version.errors.titles.${e.code}` });
+            } else {
+                this.notification.notifyError({ title: `notifications.custom-version.errors.titles.UnknownError` });
+            }
+
             return null;
         }).finally(() => {
             this.progressBar.hide(true)
@@ -163,7 +177,7 @@ export class BSVersionManagerService {
             shareReplay({ bufferSize: 1, refCount: true })
         );
 
-        this.progressBar.show(obs$.pipe(map(progress => (progress.current / progress.total) * 100)), true);
+        this.progressBar.show(obs$, true);
 
         return obs$;
     }
