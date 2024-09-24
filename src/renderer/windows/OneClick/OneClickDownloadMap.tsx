@@ -12,8 +12,11 @@ import defaultImage from "../../../../assets/images/default-version-img.jpg";
 import { useService } from "renderer/hooks/use-service.hook";
 import { useWindowArgs } from "renderer/hooks/use-window-args.hook";
 import { useWindowControls } from "renderer/hooks/use-window-controls.hook";
+import { ModalService } from "renderer/services/modale.service";
+import { Modal } from "renderer/components/modal/modal.component";
 
 import {BsmTimedButton} from "renderer/components/shared/bsm-timedboutton/bsm-timed-button.component";
+import { OneClickChooseVersions } from "renderer/components/modal/modal-types/oneclick-choose-versions-modal.conponent";
 
 export default function OneClickDownloadMap() {
 
@@ -21,6 +24,7 @@ export default function OneClickDownloadMap() {
     const mapsDownloader = useService(MapsDownloaderService);
     const progressBar = useService(ProgressBarService);
     const notification = useService(NotificationService);
+    const modal = useService(ModalService);
 
     const { close: closeWindow } = useWindowControls();
     const { mapId, isHash } = useWindowArgs("mapId", "isHash");
@@ -68,12 +72,14 @@ export default function OneClickDownloadMap() {
 
     }
 
-    const handleOnClick = () => {
-        // open modal to choose versions when the modal is closed, call handleOnComplete
+    const handleOnClick = async() => {
+        await modal.openModal(OneClickChooseVersions)
     }
+
 
     return (
         <div className="relative w-screen h-screen overflow-hidden">
+            <Modal />
             {cover && <BsmImage className="absolute top-0 left-0 w-full h-full object-cover" image={cover} />}
             <div className="w-full h-full backdrop-brightness-50 backdrop-blur-md flex flex-col justify-start items-center gap-10">
                 <TitleBar template="oneclick-download-map.html" />
@@ -82,7 +88,7 @@ export default function OneClickDownloadMap() {
             </div>
             {!downloadLaunched ? (
                 <div>
-                    <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" typeColor="primary" timeout={50000} />
+                    <BsmTimedButton onClick={handleOnClick} onComplete={() => {}} text="oneclick.chooseInstall" typeColor="primary" timeout={1000000000} />
                     <span className="absolute bottom-5 left-0 w-full text-center text-gray-200 text-xs">{t("3 versions selected")}</span>
                 </div>
             ) : (
