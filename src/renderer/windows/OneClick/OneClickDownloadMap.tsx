@@ -31,32 +31,23 @@ export default function OneClickDownloadMap() {
 
     const cover = mapInfo ? mapInfo.versions.at(0).coverURL : null;
     const title = mapInfo ? mapInfo.name : null;
-    const getMapDetails = async () => {
-      return isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : bsv.getMapDetailsById(mapId);
-    };
-
-    const getMapDetailsAsync = async () => {
-      const details = await getMapDetails();
-      return details;
-    };
 
     useEffect(() => {
-        getMapDetailsAsync().then((details) => {
-            setMapInfo(details);
-        });
-        }, []);
+
+        (async () => {
+            const mapDetails = isHash === "true" ? (await bsv.getMapDetailsFromHashs([mapId])).at(0) : await bsv.getMapDetailsById(mapId);
+            return mapDetails;
+        })()
+        .then(setMapInfo)
+
+    }, []);
 
     const handleOnComplete = () => {
         setDownloadLaunched(true);
         progressBar.open();
 
-        const promise = (async () => {
-
-            const mapDetails = await getMapDetails();
-
-            setMapInfo(() => mapDetails);
-
-            const res = await mapsDownloader.oneClickInstallMap(mapDetails).then(() => true).catch(() => false);
+        (async () => {
+            const res = await mapsDownloader.oneClickInstallMap(mapInfo).then(() => true).catch(() => false);
 
             progressBar.complete();
 
@@ -64,24 +55,21 @@ export default function OneClickDownloadMap() {
                 throw new Error("Failed to download map with OneClick");
             }
 
-        })();
-
-        promise.catch(() => {
+        })()
+        .catch(() => {
             notification.notifySystem({ title: t("notifications.types.error"), body: t("notifications.maps.one-click-install.error") });
-        });
-
-        promise.then(() => {
+        })
+        .then(() => {
             notification.notifySystem({ title: "OneClick", body: t("notifications.maps.one-click-install.success") });
-        });
-
-        promise.finally(() => {
+        })
+        .finally(() => {
             closeWindow();
         });
 
     }
 
     const handleOnClick = () => {
-        closeWindow();
+        // open modal to choose versions when the modal is closed, call handleOnComplete
     }
 
     return (
@@ -93,7 +81,10 @@ export default function OneClickDownloadMap() {
                 <h1 className="overflow-hidden font-bold italic text-xl text-gray-200 tracking-wide w-full text-center whitespace-nowrap text-ellipsis px-2">{title}</h1>
             </div>
             {!downloadLaunched ? (
-                <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" typeColor="primary" timeout={5000} />
+                <div>
+                    <BsmTimedButton onClick={handleOnClick} onComplete={handleOnComplete} text="oneclick.chooseInstall" typeColor="primary" timeout={50000} />
+                    <span className="absolute bottom-5 left-0 w-full text-center text-gray-200 text-xs">{t("3 versions selected")}</span>
+                </div>
             ) : (
                 <BsmProgressBar />
             )}

@@ -6,18 +6,16 @@ import { getCorrectTextColor } from "renderer/helpers/correct-text-color";
 type BsmButtonType = "primary" | "secondary" | "none";
 
 type Props = {
-    text: string;
-    timeout: number;
-    onClick: React.ComponentProps<'button'>['onClick'];
-    onComplete: () => void;
-    typeColor?: BsmButtonType;
-
+    readonly text: string;
+    readonly timeout: number;
+    readonly onClick: React.ComponentProps<'button'>['onClick'];
+    readonly onComplete: () => void;
+    readonly typeColor?: BsmButtonType;
 };
 
-export function BsmTimedButton({ onClick, onComplete, text, timeout, typeColor }: Props) {
+export function BsmTimedButton({ onClick, onComplete, text, timeout, typeColor }: Readonly<Props>) {
     const t = useTranslation();
     const [isVisible, setIsVisible] = useState(false);
-    const [timeleft, setTimeleft] = useState(5);
     const { firstColor, secondColor } = useThemeColor();
 
     const primaryColor = (() => {
@@ -46,25 +44,15 @@ export function BsmTimedButton({ onClick, onComplete, text, timeout, typeColor }
 
     useEffect(() => {
         setIsVisible(true);
-
+        let time = timeout / 1000;
         const interval = setInterval(() => {
-            setTimeleft((time) => {
-                if (time <= 1) {
-                    clearInterval(interval);
-                    return 0;
-                }
-                return time - 1;
-            });
+            if (time === 0) {
+                clearInterval(interval);
+                onComplete();
+            }
+            time -= 1;
         }, 1000);
-
-        return () => clearInterval(interval);
     }, []);
-
-    useEffect(() => {
-        if (timeleft === 0) {
-           // onComplete();
-        }
-    }, [timeleft, onComplete]);
 
     const handleOnClick = (e: MouseEvent<HTMLButtonElement>) => {
         onClick(e);
@@ -75,15 +63,15 @@ export function BsmTimedButton({ onClick, onComplete, text, timeout, typeColor }
             <button
                 onClick={handleOnClick}
                 type="button"
-                className={`absolute px-2 w-max h-full flex justify-center items-center rounded-md font-bold ${renderTypeColor} overflow-hidden hover:brightness-125`}
-                style={{ backgroundColor: primaryColor }}
+                className={`absolute px-2 w-max h-full flex justify-center items-center rounded-md font-bold ${renderTypeColor} bg-light-main-color-2 dark:bg-main-color-2 overflow-hidden hover:brightness-125`}
+
             >
                 <span className="z-10 text-white" style={{ ...(!!textColor && { color: `${textColor}` }) }}>{t(text)}</span>
                 <div
-                    className={`absolute w-full h-full bg-black opacity-80 transition-transform ease-linear transform ${
+                    className={`absolute w-full h-full  opacity-80 transition-transform ease-linear transform ${
                         isVisible ? 'translate-x-full' : '-translate-x-0'
                     }`}
-                    style={{ transitionDuration: `${timeout}ms` }}
+                    style={{ transitionDuration: `${timeout}ms`, backgroundColor: primaryColor }}
                 />
             </button>
         </div>
